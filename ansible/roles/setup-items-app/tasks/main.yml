@@ -1,0 +1,32 @@
+---
+# tasks file for setup-items-app
+- name: Ensure items-app dir exists
+  file:
+    path: "{{ prj_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Git checkout
+  git:
+    repo: "https://github.com/AnastasiyaGapochkina01/example-of-diploma.git"
+    dest: "{{ prj_dir }}"
+
+- name: Create .env file
+  copy:
+    content: |
+               APP_IMAGE={{ app_image }}
+               DB_USER={{ db_user }}
+               DB_NAME={{ db_name }}
+               DB_HOST={{ db_host }}
+               DB_PASS={{ db_pass }}
+    dest: "{{ prj_dir }}/.env"
+
+- name: Start items-app
+  community.docker.docker_compose_v2:
+    pull: always
+    project_src: "{{ prj_dir }}"
+  register: output
+
+- name: Check results
+  ansible.builtin.debug:
+    var: output
