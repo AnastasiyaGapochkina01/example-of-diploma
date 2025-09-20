@@ -36,7 +36,7 @@ pipeline {
             steps {
                 sshCommand remote: remote, command: """
                     set -ex ; set -o pipefail
-                    test -d $PRJ_DIR || (GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git clone $GIT_URL $PRJ_DIR)
+                    test -d $PRJ_DIR || git clone $GIT_URL $PRJ_DIR
                     cd $PRJ_DIR
                     git fetch origin
                     git checkout $BRANCH
