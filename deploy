@@ -12,17 +12,17 @@ pipeline {
         booleanParam(
             name: 'ROLLBACK',
             defaultValue: false,
-            description: 'Откатить на предыдущий image'
+            description: 'Откатить на CUSTOM_TAG'
         )
         booleanParam(
             name: 'SKIP_BUILD',
             defaultValue: false,
-            description: 'Пропустить сборку и вводить тег руками'
+            description: 'Пропустить сборку и задать тег вручнуб'
         )
         string(
             name: 'CUSTOM_TAG',
             defaultValue: '',
-            description: 'Тег образа (если SKIP_BUILD=true)'
+            description: 'Тег образа (если SKIP_BUILD=true или ROLLBACK=true)'
         )
     }
     
@@ -87,9 +87,7 @@ pipeline {
         script {
             def deployTag = ""
             if (params.ROLLBACK) {
-                deployTag = sshCommand remote: remote, command: """
-                    cat ${PRJ_DIR}/prev_tag
-                """
+                deployTag = "${REPO}:${params.CUSTOM_TAG}"
                 echo "Rollback: используем тег ${deployTag}"
             } else if (params.SKIP_BUILD) {
                 if (!params.CUSTOM_TAG?.trim()) {
@@ -104,10 +102,7 @@ pipeline {
             sshCommand remote: remote, command: """
                 set -ex ; set -o pipefail
                 cd ${PRJ_DIR}
-                test -f .env || python3 set_env.py "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
-                # Переписываем IMAGE_TAG новым значением
-                sed -i '/^APP_IMAGE=/d' .env
-                echo "APP_IMAGE=${DEPLOY_TAG}" >> .env
+                test -f .env || python3 set_env.py "${DEPLOY_TAG}"
             """
         }
     }
@@ -120,7 +115,6 @@ pipeline {
                     set -ex ; set -o pipefail
                     cd $PRJ_DIR
                     docker compose up -d
-                    docker ps --filter name=backend --format '{{.Image}}' | awk -F ':' '{print \$2}' > prev_tag
                 """
             }
         }
