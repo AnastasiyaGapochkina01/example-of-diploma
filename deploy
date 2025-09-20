@@ -14,15 +14,10 @@ pipeline {
             defaultValue: false,
             description: 'Откатить на CUSTOM_TAG'
         )
-        booleanParam(
-            name: 'SKIP_BUILD',
-            defaultValue: false,
-            description: 'Пропустить сборку и задать тег вручнуб'
-        )
         string(
             name: 'CUSTOM_TAG',
             defaultValue: '',
-            description: 'Тег образа (если SKIP_BUILD=true или ROLLBACK=true)'
+            description: 'Тег образа (если ROLLBACK=true)'
         )
     }
     
@@ -82,31 +77,19 @@ pipeline {
             }
         }
 
-        stage('Prepare envs') {
-    steps {
-        script {
-            def deployTag = ""
-            if (params.ROLLBACK) {
-                deployTag = "${REPO}:${params.CUSTOM_TAG}"
-                echo "Rollback: используем тег ${deployTag}"
-            } else if (params.SKIP_BUILD) {
-                if (!params.CUSTOM_TAG?.trim()) {
-                    error("Нужно ввести CUSTOM_TAG при SKIP_BUILD=true")
+        stage('Prepare envs'){
+            steps {
+                script {
+                    sshCommand remote: remote, command: """
+                        set -ex ; set -o pipefail
+                        cd ${PRJ_DIR}
+                        test -f .env || touch .env
+                        python3 set_env.py "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
+                    """
                 }
-                deployTag = "${REPO}:${params.CUSTOM_TAG}"
-            } else {
-                deployTag = "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
             }
-            env.DEPLOY_TAG = deployTag
-
-            sshCommand remote: remote, command: """
-                set -ex ; set -o pipefail
-                cd ${PRJ_DIR}
-                test -f .env || python3 set_env.py "${deployTag}"
-            """
         }
-    }
-}
+
 
         stage('Deploy') {
             steps {
@@ -115,6 +98,24 @@ pipeline {
                     cd $PRJ_DIR
                     docker compose up -d
                 """
+            }
+        }
+
+        stage('Rollback){
+            when {
+                expression { params.ROLLBACK == true }
+            }
+            steps {
+                script {
+                    sshCommand remote: remote, command: """
+                        set -ex ; set -o pipefail
+                        cd ${PRJ_DIR}
+                        test -f .env || touch .env
+                        sed -i '/^APP_IMAGE=/d' .env
+                        echo "APP_IMAGE=${REPO}:${CUSTOM_TAG}" >> .env
+                        docker compose up -d backend --force-recreate
+                    """
+                }
             }
         }
     }
