@@ -72,7 +72,7 @@ pipeline {
                         set -ex ; set -o pipefail
                         cd ${PRJ_DIR}
                         test -f .env || touch .env
-                        ./set_env.py "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
+                        python3 set_env.py "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
                     """
                 }
             }
