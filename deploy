@@ -102,12 +102,11 @@ pipeline {
             sshCommand remote: remote, command: """
                 set -ex ; set -o pipefail
                 cd ${PRJ_DIR}
-                test -f .env || python3 set_env.py "${DEPLOY_TAG}"
+                test -f .env || python3 set_env.py "${deployTag}"
             """
         }
     }
 }
-
 
         stage('Deploy') {
             steps {
