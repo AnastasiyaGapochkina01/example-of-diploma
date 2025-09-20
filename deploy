@@ -59,7 +59,9 @@ pipeline {
         }
 
         stage('Build Image') {
-            when { expression { return !params.SKIP_BUILD && !params.ROLLBACK } }
+           when {
+                expression { !params.ROLLBACK }
+            }
             steps {
                 sh """
                     docker buildx build --platform=linux/amd64 -t "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}" .
@@ -68,7 +70,9 @@ pipeline {
         }
 
         stage('Push Image') {
-            when { expression { return !params.SKIP_BUILD && !params.ROLLBACK } }
+            when {
+                expression { !params.ROLLBACK }
+            }
             steps {
                 sh """
                     docker login -u anestesia01 -p "${env.DOCKER_TOKEN}"
@@ -78,6 +82,9 @@ pipeline {
         }
 
         stage('Prepare envs'){
+            when {
+                expression { !params.ROLLBACK }
+            }
             steps {
                 script {
                     sshCommand remote: remote, command: """
@@ -92,6 +99,9 @@ pipeline {
 
 
         stage('Deploy') {
+            when {
+                expression { !params.ROLLBACK }
+            }
             steps {
                 sshCommand remote: remote, command: """
                     set -ex ; set -o pipefail
