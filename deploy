@@ -13,6 +13,7 @@ pipeline {
       PRJ_NAME = 'items'
       GIT_URL = 'git@github.com:AnastasiyaGapochkina01/example-of-diploma.git'
       PRJ_DIR = '/opt/items'
+      HOST = 84.201.155.163
     }
     
     stages {
