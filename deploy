@@ -101,7 +101,7 @@ pipeline {
             }
         }
 
-        stage('Rollback){
+        stage('Rollback'){
             when {
                 expression { params.ROLLBACK == true }
             }
