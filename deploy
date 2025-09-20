@@ -83,26 +83,23 @@ pipeline {
         }
 
         stage('Prepare envs') {
-            steps {
-                script {
-                    def deployTag = ""
-
-                    if (params.ROLLBACK) {
-                        deployTag = sshCommand remote: remote, command: """
-                            cat ${PRJ_DIR}/prev_tag
-                        """
-                        echo "Rollback: используем тег ${deployTag}"
-                    }
-                } else if (params.SKIP_BUILD) {
-                    if (!params.CUSTOM_TAG?.trim()) {
-                        error("Нужно ввести CUSTOM_TAG при SKIP_BUILD=true")
-                    }
-                    deployTag = "${REPO}:${params.CUSTOM_TAG}"
-                } else {
-                    deployTag = "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
+    steps {
+        script {
+            def deployTag = ""
+            if (params.ROLLBACK) {
+                deployTag = sshCommand remote: remote, command: """
+                    cat ${PRJ_DIR}/prev_tag
+                """
+                echo "Rollback: используем тег ${deployTag}"
+            } else if (params.SKIP_BUILD) {
+                if (!params.CUSTOM_TAG?.trim()) {
+                    error("Нужно ввести CUSTOM_TAG при SKIP_BUILD=true")
                 }
-
-                env.DEPLOY_TAG = deployTag
+                deployTag = "${REPO}:${params.CUSTOM_TAG}"
+            } else {
+                deployTag = "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
+            }
+            env.DEPLOY_TAG = deployTag
 
             sshCommand remote: remote, command: """
                 set -ex ; set -o pipefail
@@ -115,6 +112,7 @@ pipeline {
         }
     }
 }
+
 
         stage('Deploy') {
             steps {
