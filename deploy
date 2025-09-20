@@ -1,3 +1,5 @@
+def remote = [:]
+
 pipeline {
     agent any
     
@@ -10,12 +12,34 @@ pipeline {
       DOCKER_TOKEN = credentials('docker_token')
       PRJ_NAME = 'items'
       GIT_URL = 'git@github.com:AnastasiyaGapochkina01/example-of-diploma.git'
+      PRJ_DIR = '/opt/items'
     }
     
     stages {
-        stage('Checkout') {
+        stage('Configure credentials') {
             steps {
-                git branch: "${params.BRANCH}", url: "${env.GIT_URL}"
+                withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-key', keyFileVariable: 'private_key', usernameVariable: 'username')]) {
+                    script {
+                        remote.name = "${env.HOST}"
+                        remote.host = "${env.HOST}"
+                        remote.user = "jenkins"
+                        remote.identity = readFile "$private_key"
+                        remote.allowAnyHosts = true
+                        remote.agentForwarding = true
+                    }
+                }
+            }
+        }
+
+        stage('Checkout repo') {
+            steps {
+                sshCommand remote: remote, command: """
+                    set -ex ; set -o pipefail
+                    test -d $PRJ_DIR || (mkdir -p $PRJ_DIR && GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no" git clone $GIT_URL $PRJ_DIR)
+                    cd $PRJ_DIR
+                    git fetch origin
+                    git checkout $BRANCH
+                """
             }
         }
       
@@ -37,6 +61,29 @@ pipeline {
                         docker push "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
                     """
                 }
+            }
+        }
+
+        stage('Prepare envs'){
+            steps {
+                script {
+                    sshCommand remote: remote, command: """
+                        set -ex ; set -o pipefail
+                        cd ${PRJ_DIR}
+                        test -f .env || touch .env
+                        ./set_env.py $PRJ_NAME
+                    """
+                }
+            }
+        }
+
+        stage('Deploy'){
+            steps {
+                sshCommand remote: remote, command: """
+                    set -ex ; set -o pipefail
+                    cd $PRJ_DIR
+                    APP_IMAGE="${REPO}:${PRJ_NAME}-${BUILD_NUMBER}" docker compose up -d
+                """
             }
         }
     }
