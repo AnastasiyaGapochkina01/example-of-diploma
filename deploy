@@ -83,34 +83,26 @@ pipeline {
         }
 
         stage('Prepare envs') {
-    steps {
-        script {
-            def deployTag = ""
+            steps {
+                script {
+                    def deployTag = ""
 
-            if (params.ROLLBACK) {
-                // Читаем текущий тег из .env перед его перезаписью
-                sshCommand remote: remote, command: """
-                    set -ex ; set -o pipefail
-                    cd ${PRJ_DIR}
-                    grep APP_IMAGE .env | cut -d '=' -f2 || true
-                """, returnStdout: true
-                .trim().with { currentTag ->
-                    if (!currentTag) {
-                        error("Не найден текущий IMAGE_TAG в .env для rollback")
+                    if (params.ROLLBACK) {
+                        deployTag = sshCommand remote: remote, command: """
+                            cat ${PRJ_DIR}/prev_tag
+                        """
+                        echo "Rollback: используем тег ${deployTag}"
                     }
-                    echo "Rollback: используем тег ${currentTag}"
-                    deployTag = currentTag
+                } else if (params.SKIP_BUILD) {
+                    if (!params.CUSTOM_TAG?.trim()) {
+                        error("Нужно ввести CUSTOM_TAG при SKIP_BUILD=true")
+                    }
+                    deployTag = "${REPO}:${params.CUSTOM_TAG}"
+                } else {
+                    deployTag = "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
                 }
-            } else if (params.SKIP_BUILD) {
-                if (!params.CUSTOM_TAG?.trim()) {
-                    error("Нужно ввести CUSTOM_TAG при SKIP_BUILD=true")
-                }
-                deployTag = "${REPO}:${params.CUSTOM_TAG}"
-            } else {
-                deployTag = "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
-            }
 
-            env.DEPLOY_TAG = deployTag
+                env.DEPLOY_TAG = deployTag
 
             sshCommand remote: remote, command: """
                 set -ex ; set -o pipefail
@@ -118,7 +110,7 @@ pipeline {
                 test -f .env || python3 set_env.py "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
                 # Переписываем IMAGE_TAG новым значением
                 sed -i '/^APP_IMAGE=/d' .env
-                echo "APP_IMAGE=${deployTag}" >> .env
+                echo "APP_IMAGE=${DEPLOY_TAG}" >> .env
             """
         }
     }
@@ -130,6 +122,7 @@ pipeline {
                     set -ex ; set -o pipefail
                     cd $PRJ_DIR
                     docker compose up -d
+                    docker ps --filter name=backend --format '{{.Image}}' | awk -F ':' '{print $2}' > prev_tag
                 """
             }
         }
