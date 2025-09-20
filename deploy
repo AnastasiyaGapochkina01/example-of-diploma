@@ -93,7 +93,7 @@ pipeline {
             // Ждем готовности базы (можно сделать цикл или использовать wait-for-it.sh)
             sh '''
             for i in {1..20}; do
-              docker-compose -f docker-compose.test.yml exec db pg_isready -U testuser && break
+              docker compose -f compose.test.yml exec db pg_isready -U testuser && break
               echo "Waiting for DB..."
               sleep 3
             done
@@ -106,7 +106,7 @@ pipeline {
             '''
 
             // Останавливаем docker-compose после тестов
-            sh 'docker-compose -f docker-compose.test.yml down -v'
+            sh 'docker compose compose.test.yml down -v'
         }
         archiveArtifacts artifacts: "results.xml", allowEmptyArchive: false
     }
