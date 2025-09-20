@@ -48,7 +48,7 @@ pipeline {
             steps {
                 script {
                     sh """
-                        docker build -t "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}" .
+                        docker buildx build --platform=linux/amd64 -t "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}" .
                     """
                 }
             }
