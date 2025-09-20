@@ -36,10 +36,10 @@ pipeline {
             steps {
                 sshCommand remote: remote, command: """
                     set -ex ; set -o pipefail
-                    test -d "${env.PRJ_DIR}" || git clone "${env.GIT_URL} "${env.PRJ_DIR}"
-                    cd "${env.PRJ_DIR}"
+                    test -d ${env.PRJ_DIR} || git clone ${env.GIT_URL} ${env.PRJ_DIR}
+                    cd ${env.PRJ_DIR}
                     git fetch origin
-                    git checkout "${params.BRANCH}"
+                    git checkout ${params.BRANCH}
                 """
             }
         }
