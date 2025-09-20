@@ -75,21 +75,43 @@ pipeline {
         }
 
         stage('Run tests') {
-            agent {
-                docker { 
-                    image "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
-                    //label 'docker'
-                    reuseNode true
-                }
-            }
-            when {
-                expression { params.RUN_TESTS == true }
-            }
-            steps {
-                sh "pytest -v --disable-warnings --maxfail=1 --junitxml=results.xml"
-                archiveArtifacts artifacts: "results.xml", allowEmptyArchive: false
-            }
+    agent {
+        docker {
+            image "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
+            reuseNode true
+            args '-v /var/run/docker.sock:/var/run/docker.sock'
         }
+    }
+    when {
+        expression { params.RUN_TESTS == true }
+    }
+    steps {
+        script {
+            // Запускаем базу через docker-compose внутри контейнера Jenkins агента
+            sh 'docker-compose -f docker-compose.test.yml up -d db'
+
+            // Ждем готовности базы (можно сделать цикл или использовать wait-for-it.sh)
+            sh '''
+            for i in {1..20}; do
+              docker-compose -f docker-compose.test.yml exec db pg_isready -U testuser && break
+              echo "Waiting for DB..."
+              sleep 3
+            done
+            '''
+
+            // Запускаем тесты внутри контейнера с нужным PYTHONPATH
+            sh '''
+            export PYTHONPATH=/app
+            pytest -v --disable-warnings --maxfail=1 --junitxml=results.xml
+            '''
+
+            // Останавливаем docker-compose после тестов
+            sh 'docker-compose -f docker-compose.test.yml down -v'
+        }
+        archiveArtifacts artifacts: "results.xml", allowEmptyArchive: false
+    }
+}
+
 
         stage('Push Image') {
             when {
