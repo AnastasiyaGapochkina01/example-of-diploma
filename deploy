@@ -120,7 +120,7 @@ pipeline {
                     set -ex ; set -o pipefail
                     cd $PRJ_DIR
                     docker compose up -d
-                    docker ps --filter name=backend --format '{{.Image}}' | awk -F ':' '{print $2}' > prev_tag
+                    docker ps --filter name=backend --format '{{.Image}}' | awk -F ':' '{print \$2}' > prev_tag
                 """
             }
         }
