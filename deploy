@@ -2,7 +2,7 @@ pipeline {
     agent any
     
     parameters {
-        gitParameter (type: 'PT_BRANCH', name: 'BRANCH', branchFilter: 'origin/(.*)', sortMode: 'DESCENDING_SMART'   
+        gitParameter (type: 'PT_BRANCH', name: 'BRANCH', branchFilter: 'origin/(.*)', sortMode: 'DESCENDING_SMART')
     }
     
     environment {
