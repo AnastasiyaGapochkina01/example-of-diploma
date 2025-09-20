@@ -5,4 +5,4 @@ RUN apt-get update && \
 WORKDIR /app
 COPY . .
 RUN pip install --no-cache-dir -r requirements.txt
-ENTRYPOINT ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+ENTRYPOINT ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
