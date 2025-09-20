@@ -1,19 +1,38 @@
 def remote = [:]
-
 pipeline {
     agent any
     
     parameters {
-        gitParameter (type: 'PT_BRANCH', name: 'BRANCH', branchFilter: 'origin/(.*)', sortMode: 'DESCENDING_SMART')
+        gitParameter(
+            type: 'PT_BRANCH',
+            name: 'BRANCH',
+            branchFilter: 'origin/(.*)',
+            sortMode: 'DESCENDING_SMART'
+        )
+        booleanParam(
+            name: 'ROLLBACK',
+            defaultValue: false,
+            description: 'Откатить на предыдущий image'
+        )
+        booleanParam(
+            name: 'SKIP_BUILD',
+            defaultValue: false,
+            description: 'Пропустить сборку и вводить тег руками'
+        )
+        string(
+            name: 'CUSTOM_TAG',
+            defaultValue: '',
+            description: 'Тег образа (если SKIP_BUILD=true)'
+        )
     }
     
     environment {
-      REPO = 'anestesia01/blog-go'
-      DOCKER_TOKEN = credentials('docker_token')
-      PRJ_NAME = 'items'
-      GIT_URL = 'git@github.com:AnastasiyaGapochkina01/example-of-diploma.git'
-      PRJ_DIR = '/var/www/items'
-      HOST = "84.201.155.163"
+        REPO = 'anestesia01/blog-go'
+        DOCKER_TOKEN = credentials('docker_token')
+        PRJ_NAME = 'items'
+        GIT_URL = 'git@github.com:AnastasiyaGapochkina01/example-of-diploma.git'
+        PRJ_DIR = '/var/www/items'
+        HOST = "84.201.155.163"
     }
     
     stages {
@@ -43,42 +62,60 @@ pipeline {
                 """
             }
         }
-      
+
         stage('Build Image') {
+            when { expression { return !params.SKIP_BUILD && !params.ROLLBACK } }
             steps {
-                script {
-                    sh """
-                        docker buildx build --platform=linux/amd64 -t "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}" .
-                    """
-                }
-            }
-        }
-      
-        stage('Push Image') {
-            steps {
-                script {
-                    sh """
-                        docker login -u anestesia01 -p "${env.DOCKER_TOKEN}"
-                        docker push "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
-                    """
-                }
+                sh """
+                    docker buildx build --platform=linux/amd64 -t "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}" .
+                """
             }
         }
 
-        stage('Prepare envs'){
+        stage('Push Image') {
+            when { expression { return !params.SKIP_BUILD && !params.ROLLBACK } }
+            steps {
+                sh """
+                    docker login -u anestesia01 -p "${env.DOCKER_TOKEN}"
+                    docker push "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
+                """
+            }
+        }
+
+        stage('Prepare envs') {
             steps {
                 script {
+                    def deployTag = ""
+                    
+                    if (params.ROLLBACK) {
+                        // Возьмем предыдущий build tag
+                        def prevBuild = currentBuild.previousBuild?.number
+                        if (!prevBuild) {
+                            error("Нет предыдущего билда для rollback")
+                        }
+                        deployTag = "${REPO}:${PRJ_NAME}-${prevBuild}"
+                    } else if (params.SKIP_BUILD) {
+                        if (!params.CUSTOM_TAG?.trim()) {
+                            error("Нужно ввести CUSTOM_TAG при SKIP_BUILD=true")
+                        }
+                        deployTag = "${REPO}:${params.CUSTOM_TAG}"
+                    } else {
+                        deployTag = "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
+                    }
+
+                    env.DEPLOY_TAG = deployTag
+
                     sshCommand remote: remote, command: """
                         set -ex ; set -o pipefail
                         cd ${PRJ_DIR}
                         test -f .env || touch .env
-                        python3 set_env.py "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
+                        python3 set_env.py "${deployTag}"
                     """
                 }
             }
         }
 
-        stage('Deploy'){
+        stage('Deploy') {
             steps {
                 sshCommand remote: remote, command: """
                     set -ex ; set -o pipefail
