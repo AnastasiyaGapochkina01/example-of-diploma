@@ -15,7 +15,7 @@ pipeline {
         )
         string(
             name: 'HOST',
-            defaultValue: '89.169.187.106'
+            defaultValue: '89.169.187.106',
             description: 'Хост для деплоя'
         )
         booleanParam(
