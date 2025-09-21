@@ -65,6 +65,12 @@ pipeline {
             }
         }
 
+        stage('Prune old images') {
+            steps {
+                sh "docker image prune -a"
+            }
+        }
+
         stage('Build Image') {
            when {
                 expression { !params.ROLLBACK }
