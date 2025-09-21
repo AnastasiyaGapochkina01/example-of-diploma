@@ -100,6 +100,7 @@ pipeline {
             }
             agent { label 'docker' }
             steps {
+                script {
                 sh """
                     docker rm -f \$(docker ps -a -q)
                     docker network create app-test || true
@@ -120,6 +121,7 @@ pipeline {
                         "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
                     docker exec backend pytest -v --disable-warnings --maxfail=2
                 """
+                }
             }
         }
 
