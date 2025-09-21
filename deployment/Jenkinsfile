@@ -20,7 +20,7 @@ pipeline {
         )
         booleanParam(
             name: 'ROLLBACK',
-            defaultValue: false
+            defaultValue: false,
             description: 'Откатить на версию $TAG'
         )
         booleanParam(
