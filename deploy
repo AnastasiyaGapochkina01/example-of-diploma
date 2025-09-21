@@ -100,7 +100,7 @@ pipeline {
             }
             agent { label 'docker' }
             steps {
-                script {
+                warnError("The command failed"){
                     sh """
                         set -e
 
