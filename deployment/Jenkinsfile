@@ -134,7 +134,8 @@ pipeline {
                     set -ex; set -o pipefail
                     cd ${env.PRJ_DIR}
                     test -f .env || python3 deployment/set_envs.py "${env.REPO}:${BUILD_NUMBER}"
-                    python3 deployment/set_envs.py "${env.REPO}:${BUILD_NUMBER}"
+                    sed -i '/APP_IMAGE=/d' .env
+                    echo "APP_IMAGE="${env.REPO}:${BUILD_NUMBER}" >> .env
                 """
             }
         }
