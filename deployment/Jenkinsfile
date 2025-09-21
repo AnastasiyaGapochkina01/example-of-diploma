@@ -49,7 +49,7 @@ pipeline {
                     script {
                         remote.name = "${params.HOST}"
                         remote.host = "${params.HOST}"
-                        remote.user: "${username}"
+                        remote.user = "${username}"
                         remote.identity = readFile "${private_key}"
                         remote.allowAnyHosts = true
                     }
