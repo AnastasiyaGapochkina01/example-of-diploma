@@ -42,7 +42,7 @@ def main():
         if not updated:
             new_lines.append(f"APP_IMAGE={app_image}\n")
         
-        if db_pass_line in None:
+        if db_pass_line is None:
             new_lines.append(f"DB_PASS={generate_password(lenth=12)}\n")
 
         with open(".env", "w") as f:
