@@ -89,7 +89,7 @@ pipeline {
                 docker { 
                     image "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
                     label 'docker'
-                    //reuseNode true
+                    alwaysPull true
                 }
             }
             steps {
