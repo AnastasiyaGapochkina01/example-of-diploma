@@ -81,7 +81,20 @@ pipeline {
                 """
             }
         }
-        stage('Run tests'){
+
+        stage('Push Image') {
+            when {
+                expression { !params.ROLLBACK }
+            }
+            steps {
+                sh """
+                    docker login -u anestesia01 -p "${env.DOCKER_TOKEN}"
+                    docker push "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
+                """
+            }
+        }
+
+         stage('Run tests'){
             when {
                 expression { !params.ROLLBACK }
             }
@@ -95,18 +108,6 @@ pipeline {
             steps {
                 sh "pytest -v --disable-warnings --maxfail=1 --junitxml=results.xml"
                 archiveArtifacts artifacts: "results.xml", allowEmptyArchive: false
-            }
-        }
-
-        stage('Push Image') {
-            when {
-                expression { !params.ROLLBACK }
-            }
-            steps {
-                sh """
-                    docker login -u anestesia01 -p "${env.DOCKER_TOKEN}"
-                    docker push "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
-                """
             }
         }
 
