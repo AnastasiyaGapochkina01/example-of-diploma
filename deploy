@@ -67,7 +67,7 @@ pipeline {
 
         stage('Prune old images') {
             steps {
-                sh "docker image prune -a"
+                sh "docker image prune -fa"
             }
         }
 
