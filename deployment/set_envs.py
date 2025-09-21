@@ -51,12 +51,7 @@ def main():
         print(".env updated with APP_IMAGE")
     else:
         db_pass = generate_password(12)
-        env_content = f"""APP_IMAGE={app_image}
-                    DB_USER={db_user}
-                    DB_PASS={db_pass}
-                    DB_NAME={db_name}
-                    DB_HOST={db_host}
-                """
+        env_content = f"""APP_IMAGE={app_image}\nDB_USER={db_user}\nDB_PASS={db_pass}\nDB_NAME={db_name}\nDB_HOST={db_host}"""
         with open(".env", "w") as f:
             f.write(env_content)
         print(".env generated")
