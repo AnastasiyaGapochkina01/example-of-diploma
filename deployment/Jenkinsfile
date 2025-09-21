@@ -102,7 +102,7 @@ pipeline {
                 warnError('Test failed'){
                     sh """
                         set -e
-                        docker rf -f \$(docker ps -a -q) || true
+                        docker rm -f \$(docker ps -a -q) || true
                         docker network create tests
                         docker run -d --name db \
                             -e POSTGRES_USER=postgres \
