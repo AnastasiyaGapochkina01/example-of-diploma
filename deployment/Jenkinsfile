@@ -1,0 +1,171 @@
+def remote = [:]
+pipeline {
+    agent {
+        label 'main'
+    }
+
+    parameters {
+        gitParameter(
+            type: 'PT_BRANCH', 
+            name: 'BRANCH', 
+            branchFilter: 'origin/(.*)', 
+            sortMode: 'DESCENDING_SMART',
+            defaultValue: 'main',
+            quickFilterEnabled: true
+        )
+        string(
+            name: 'HOST',
+            defaultValue: '89.169.187.106'
+            description: 'Хост для деплоя'
+        )
+        booleanParam(
+            name: 'ROLLBACK',
+            defaultValue: false
+            description: 'Откатить на версию $TAG'
+        )
+        booleanParam(
+            name: 'RUN_TESTS',
+            defaultValue: true
+            description: 'Запуск тестов'
+        )
+        string(
+            name: 'TAG',
+            defaultValue: '',
+            description: 'Тэг (:items-1) для rollback'
+        )
+    }
+    environment {
+        REPO = 'anestesia01/items-app'
+        DOCKER_TOKEN = credentials('docker_token')
+        REPO_USER = 'anestesia01'
+        GIT_URL = 'git@github.com:AnastasiyaGapochkina01/example-of-diploma.git'
+        PRJ_DIR = '/var/www/items-app'
+    }
+
+    stages {
+        stage('Configure credentials'){
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-key', keyFileVariable: 'private_key', usernameVariable: 'username')]) {
+                    script {
+                        remote.name = "${params.HOST}"
+                        remote.host = "${params.HOST}"
+                        remote.user: "${username}"
+                        remote.identity = readFile "${private_key}"
+                        remote.allowAnyHosts = true
+                    }
+                }
+            }
+        }
+
+        stage('Checkout repo'){
+            steps {
+                sshCommand remote: remote, command: """
+                    set -ex; set -o pipefail
+                    sudo chown -R jenkins:jenkins /var/www
+                    test -d ${env.PRJ_DIR} || git clone ${env.GIT_URL} ${env.PRJ_DIR}
+                    cd ${env.PRJ_DIR}
+                    git checkout ${params.BRANCH}
+                    git pull
+                """
+            }
+        }
+
+        stage('Build image') {
+            when {
+                expression { !params.ROLLBACK }
+            }
+            steps {
+                sh """
+                    docker buildx build --platform=linux/amd64 -t "${env.REPO}:${BUILD_NUMBER}" .
+                """
+            }
+        }
+
+        stage('Push image'){
+            when {
+                expression { !params.ROLLBACK }
+            }
+            steps{
+                sh """
+                    docker login -u "${env.REPO_USER}" -p "${env.DOCKER_TOKEN}"
+                    docker push "${env.REPO}:${BUILD_NUMBER}"
+                """
+            }
+        }
+
+        stage('Run tests'){
+            when {
+                expression { !params.ROLLBACK }
+            }
+            agent { label 'docker' }
+            steps {
+                warnError('Test failed'){
+                    sh """
+                        set -e
+                        docker rf -f \$(docker ps -a -q) || true
+                        docker network create tests
+                        docker run -d --name db \
+                            -e POSTGRES_USER=postgres \
+                            -e POSTGRES_POSTGRES=postgres \
+                            -e POSTGRES_DB=mydb \
+                            --network=tests \
+                            postgres:16
+                        echo "Waiting for db..."
+                        sleep 10
+                        docker run -d --name backend \
+                            -e DB_USER=postgres \
+                            -e DB_PASS=postgres \
+                            -e DB_NAME=mydb \
+                            -e DB_HOST=db \
+                            --network=tests \
+                            "${env.REPO}:${BUILD_NUMBER}"
+                        docker exec backend pytest -v --disable-warnings --maxfail=1
+                    """
+                }
+            }
+        }
+
+        stage('Prepare envs'){
+            when {
+                expression { !params.ROLLBACK }
+            }
+            steps{
+                sshCommand remote: remote, command: """
+                    set -ex; set -o pipefail
+                    cd ${env.PRJ_DIR}
+                    test -f .env || touch .env
+                    python3 set_envs.py "${env.REPO}:${BUILD_NUMBER}"
+                """
+            }
+        }
+
+        stage('Deploy'){
+            when {
+                expression { !params.ROLLBACK }
+            }
+            steps{
+                sshCommand remote: remote, command: """
+                    set -ex; set -o pipefail
+                    cd ${env.PRJ_DIR}
+                    docker compose up -d
+                """
+            }
+        }
+
+        stage('Rollback'){
+            when {
+                expression { params.ROLLBACK == true }
+            }
+            steps{
+                sshCommand remote: remote, command: """
+                    set -ex; set -o pipefail
+                    cd ${env.PRJ_DIR}
+                    test -f .env || touch .env
+                    sed -i '/APP_IMAGE=/d' .env
+                    echo "APP_IMAGE="${env.REPO}:${TAG}" >> .env
+                    docker compose up -d backend --force-recreate
+                """
+            }
+        }
+    }
+}
