@@ -2,5 +2,3 @@ fastapi
 uvicorn[standard]
 prometheus-client
 psycopg2-binary
-pytest
-httpx
