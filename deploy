@@ -1,6 +1,8 @@
 def remote = [:]
 pipeline {
-    agent any
+    agent {
+        label 'main'
+    }
     
     parameters {
         gitParameter(
@@ -73,19 +75,22 @@ pipeline {
                 """
             }
         }
-
-        stage('Run tests') {
-            // ТУТ БУДЕМ ЕЩЕ деплоить на тестовый стенд и потом его грохать
-            // Запускаем тесты внутри контейнера с нужным PYTHONPATH
-            sh '''
-            export PYTHONPATH=/app
-            pytest -v --disable-warnings --maxfail=1 --junitxml=results.xml
-            '''
+        stage('Run tests'){
+            when {
+                expression { !params.ROLLBACK }
+            }
+            agent {
+                docker { 
+                    image "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
+                    label 'docker'
+                    //reuseNode true
+                }
+            }
+            steps {
+                sh "pytest -v --disable-warnings --maxfail=1 --junitxml=results.xml"
+                archiveArtifacts artifacts: "results.xml", allowEmptyArchive: false
+            }
         }
-        archiveArtifacts artifacts: "results.xml", allowEmptyArchive: false
-    }
-}
-
 
         stage('Push Image') {
             when {
