@@ -98,16 +98,27 @@ pipeline {
             when {
                 expression { !params.ROLLBACK }
             }
-            agent {
-                docker { 
-                    image "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
-                    label 'docker'
-                    alwaysPull true
-                }
-            }
+            agent { label 'docker' }
             steps {
-                sh "pytest -v --disable-warnings --maxfail=1 --junitxml=results.xml"
-                archiveArtifacts artifacts: "results.xml", allowEmptyArchive: false
+                sh """
+                    docker network create app-test
+                    docker run -d -it --name db \
+                        -e POSTGRES_USER=postgres \
+                        -e POSTGRES_PASSWORD=postgres \
+                        -e POSTGRES_DB=mydb \
+                        --network=app-test \
+                        postgres:15
+                    echo "waiting for db..."
+                    sleep 10
+                    docker run -d -it --name backend
+                        -e DB_USER=postgres \
+                        -e DB_PASS=postgres \
+                        -e DB_NAME=mydb \
+                        -e DB_HOST=db \
+                        --network=app-test \
+                        "${REPO}:${PRJ_NAME}-${BUILD_NUMBER}"
+                    docker exec backend pytest -v --disable-warnings --maxfail=2
+                """
             }
         }
 
