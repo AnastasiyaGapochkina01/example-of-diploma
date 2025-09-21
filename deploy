@@ -101,9 +101,8 @@ pipeline {
             agent { label 'docker' }
             steps {
                 sh """
-                    docker ps -a -q | xargs docker rm -f
-                    docker system prune -fa
-                    docker network create app-test
+                    docker rm -f $(docker ps -a -q)
+                    docker network create app-test || true
                     docker run -d -it --name db \
                         -e POSTGRES_USER=postgres \
                         -e POSTGRES_PASSWORD=postgres \
