@@ -3,9 +3,12 @@ from pydantic import BaseModel
 import psycopg2
 import os
 import time
+from dotenv import load_dotenv
 from prometheus_client import Counter, Histogram, Gauge, generate_latest, REGISTRY
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
 from starlette.responses import Response
+
+load_dotenv()
 
 app = FastAPI()
 
