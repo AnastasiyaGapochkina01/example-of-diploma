@@ -3,4 +3,4 @@
   become: true
   roles:
     - install-docker
-    - setup-items-app
+ #   - setup-items-app
